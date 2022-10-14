@@ -281,6 +281,7 @@ ANALYSIS_CONFIG_SCHEMA_V1_0 = Schema(
                 in (
                     "text/csv",
                     "application/jsonlines",
+                    "application/json",
                     "image/jpeg",
                     "image/jpg",
                     "image/png",
@@ -296,6 +297,7 @@ ANALYSIS_CONFIG_SCHEMA_V1_0 = Schema(
             SchemaOptional("probability"): Or(str, int),
             SchemaOptional("label_headers"): [Or(str, int)],
             SchemaOptional("content_template"): Or(str, {str: str}),
+            SchemaOptional("sample_template"): str,
             SchemaOptional("custom_attributes"): str,
         },
     }
@@ -550,6 +552,7 @@ class ModelConfig:
         accept_type: Optional[str] = None,
         content_type: Optional[str] = None,
         content_template: Optional[str] = None,
+        sample_template: Optional[str] = None,
         custom_attributes: Optional[str] = None,
         accelerator_type: Optional[str] = None,
         endpoint_name_prefix: Optional[str] = None,
@@ -572,14 +575,24 @@ class ModelConfig:
                 Cannot be set when ``endpoint_name`` is set.
                 Must be set with ``instance_count``, ``model_name``
             accept_type (str): The model output format to be used for getting inferences with the
-                shadow endpoint. Valid values are ``"text/csv"`` for CSV and
-                ``"application/jsonlines"``. Default is the same as ``content_type``.
+                shadow endpoint. Valid values are ``"text/csv"`` for CSV,
+                ``"application/jsonlines"`` for JSONLines and ``"application/json"`` for JSON.
+                Default is the same as ``content_type``.
             content_type (str): The model input format to be used for getting inferences with the
-                shadow endpoint. Valid values are ``"text/csv"`` for CSV and
-                ``"application/jsonlines"``. Default is the same as ``dataset_format``.
+                shadow endpoint. Valid values are ``"text/csv"`` for CSV,
+                ``"application/jsonlines"`` for JSONLines and ``"application/json"`` for JSON.
+                Default is the same as ``dataset_format``.
             content_template (str): A template string to be used to construct the model input from
                 dataset instances. It is only used when ``model_content_type`` is
-                ``"application/jsonlines"``. The template should have one and only one placeholder,
+                ``"application/jsonlines"`` or ``"application/json"``. When ``model_content_type``
+                is ``"application/jsonlines"``, the template should have one and only one
+                placeholder ``"features"``, which will be replaced by a features list to form the
+                model inference input. When ``model_content_type`` is ``"application/json"``, the
+                template should have one and only one placeholder ``"samples"``, which will be
+                replaced later by samples.
+            sample_template (str): A template string to be used to construct the model input from
+                dataset instances. It is only used when ``model_content_type`` is
+                ``"application/json"``. The template should have one and only one placeholder,
                 ``"features"``, which will be replaced by a features list to form the model
                 inference input.
             custom_attributes (str): Provides additional information about a request for an
@@ -642,7 +655,7 @@ class ModelConfig:
                 )
             self.predictor_config["endpoint_name_prefix"] = endpoint_name_prefix
         if accept_type is not None:
-            if accept_type not in ["text/csv", "application/jsonlines"]:
+            if accept_type not in ["text/csv", "application/jsonlines", "application/json"]:
                 raise ValueError(
                     f"Invalid accept_type {accept_type}."
                     f" Please choose text/csv or application/jsonlines."
@@ -652,6 +665,7 @@ class ModelConfig:
             if content_type not in [
                 "text/csv",
                 "application/jsonlines",
+                "application/json",
                 "image/jpeg",
                 "image/jpg",
                 "image/png",
@@ -663,12 +677,23 @@ class ModelConfig:
                 )
             self.predictor_config["content_type"] = content_type
         if content_template is not None:
-            if "$features" not in content_template:
+            if content_type is not None and content_type == "application/json":
+                placeholder = "$samples"
+            else:
+                placeholder = "$features"
+            if placeholder not in content_template:
                 raise ValueError(
                     f"Invalid content_template {content_template}."
-                    f" Please include a placeholder $features."
+                    f" Please include a placeholder {placeholder}."
                 )
             self.predictor_config["content_template"] = content_template
+        if sample_template is not None:
+            if "$features" not in sample_template:
+                raise ValueError(
+                    f"Invalid sample_template {sample_template}."
+                    f" Please include a placeholder $features."
+                )
+            self.predictor_config["sample_template"] = sample_template
         _set(custom_attributes, "custom_attributes", self.predictor_config)
         _set(accelerator_type, "accelerator_type", self.predictor_config)
         _set(target_model, "target_model", self.predictor_config)
