@@ -36,6 +36,7 @@ INFERENCE_ID = "inference-id"
 ENDPOINT_DESC = {"EndpointArn": "foo", "EndpointConfigName": ENDPOINT}
 
 ENDPOINT_CONFIG_DESC = {"ProductionVariants": [{"ModelName": "model-1"}, {"ModelName": "model-2"}]}
+ENABLE_EXPLANATIONS = "`true`"
 
 
 def empty_sagemaker_session():
@@ -116,6 +117,29 @@ def test_predict_call_with_inference_id():
         "ContentType": DEFAULT_CONTENT_TYPE,
         "EndpointName": ENDPOINT,
         "InferenceId": INFERENCE_ID,
+    }
+
+    call_args, kwargs = sagemaker_session.sagemaker_runtime_client.invoke_endpoint.call_args
+    assert kwargs == expected_request_args
+
+    assert result == RETURN_VALUE
+
+
+def test_predict_call_with_enable_explanations():
+    sagemaker_session = empty_sagemaker_session()
+    predictor = Predictor(ENDPOINT, sagemaker_session)
+
+    data = "untouched"
+    result = predictor.predict(data, enable_explanations=ENABLE_EXPLANATIONS)
+
+    assert sagemaker_session.sagemaker_runtime_client.invoke_endpoint.called
+
+    expected_request_args = {
+        "Accept": DEFAULT_ACCEPT,
+        "Body": data,
+        "ContentType": DEFAULT_CONTENT_TYPE,
+        "EndpointName": ENDPOINT,
+        "EnableExplanations": ENABLE_EXPLANATIONS,
     }
 
     call_args, kwargs = sagemaker_session.sagemaker_runtime_client.invoke_endpoint.call_args

@@ -23,6 +23,7 @@ from sagemaker.deserializers import (
     StringDeserializer,
     BytesDeserializer,
     CSVDeserializer,
+    ExplanationDeserializer,
     StreamDeserializer,
     NumpyDeserializer,
     JSONDeserializer,
@@ -84,6 +85,45 @@ def test_stream_deserializer():
     assert result == b"[1, 2, 3]"
     assert content_type == "application/json"
 
+
+@pytest.fixture
+def explaination_deserializer():
+    return ExplanationDeserializer(prediction_deserializer=CSVDeserializer())
+
+
+def test_explaination_deserializer_deserialize_csv(explaination_deserializer):
+
+    payload = {
+        'explanations':
+            {'kernel_shap': [
+                [{'attributions': [
+                    {'attribution': [-0.06635617692391947]}]
+                },
+                {'attributions': [
+                    {'attribution': [1.3489120609146144e-05]}]
+                },
+                {'attributions': [{'attribution': [0.03656553249437727]}]}, {
+                                           'attributions': [
+                                               {'attribution': [1.3489120609154817e-05]}]}, {
+                                           'attributions': [
+                                               {'attribution': [2.8511095832983203e-05]}]},
+                                       {'attributions': [{'attribution': [1.348912060915395e-05]}]},
+                                       {'attributions': [
+                                           {'attribution': [1.3489120609173899e-05]}]}]]},
+        'predictions': {
+             'content_type': 'text/csv; charset=utf-8',
+             'data': '0.3027094602584839'
+        },
+        'version': '1.0'
+    }
+    result = explaination_deserializer.deserialize(io.BytesIO(json.dumps(payload).encode('utf-8')), "text/csv")
+
+
+def test_explaination_deserializer_deserialize_jsonlines(explaination_deserializer):
+    deserializer = ExplanationDeserializer(prediction_deserializer=CSVDeserializer())
+    payload = {'explanations': {'kernel_shap': [[{'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}, {'attributions': [{'attribution': [0.0]}]}]]}, 'label_headers': ['0'], 'predictions': {'content_type': 'application/jsonlines', 'data': '{"predicted_label":0,"score":0.019778741523623}\n'}, 'version': '1.0'}
+    result = deserializer.deserialize(io.BytesIO(json.dumps(payload).encode('utf-8')),
+                                      "application/json")
 
 @pytest.fixture
 def numpy_deserializer():

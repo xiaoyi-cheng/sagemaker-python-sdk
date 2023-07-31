@@ -229,6 +229,41 @@ class NumpyDeserializer(SimpleBaseDeserializer):
         raise ValueError("%s cannot read content type %s." % (__class__.__name__, content_type))
 
 
+class ExplanationDeserializer(SimpleBaseDeserializer):
+    """Deserialize explainations data from an inference endpoint into a Python object."""
+
+    def __init__(self, prediction_deserializer):
+        """Initialize a ``ExplanationDeserializer`` instance.
+
+        Args:
+            prediction_deserializer (:class:`~sagemaker.deserializers.BaseDeserializer`): A
+                deserializer object, used to decode prediction data from an explainer-enabled
+                inference endpoint.
+        """
+        super(ExplanationDeserializer, self).__init__(accept=prediction_deserializer.ACCEPT)
+        self.prediction_deserializer = prediction_deserializer
+        self.payload_deserializer = JSONDeserializer()
+
+    def deserialize(self, stream, content_type):
+        """Deserialize JSON data from an inference endpoint into a Python object.
+
+        Args:
+            stream (botocore.response.StreamingBody): Data to be deserialized.
+            content_type (str): The MIME type of the data. Always application/json for payload.
+
+        Returns:
+            object: The JSON-formatted data deserialized into a Python object.
+        """
+        response = self.payload_deserializer.deserialize(stream, "application/json")
+        print(response)
+        print(response["predictions"]["data"])
+        # response["predictions"]["data"] is str, converts to a StreamingBody
+        result = self.prediction_deserializer.deserialize(io.BytesIO(response["predictions"]["data"].encode("utf-8")),
+                                                  response["predictions"]["content_type"])
+        print(result)
+        return result
+
+
 class JSONDeserializer(SimpleBaseDeserializer):
     """Deserialize JSON data from an inference endpoint into a Python object."""
 
